@@ -122,35 +122,53 @@ async def translate_endpoint(request: Request):
     try:
         body = await request.json()
         
-        # Handle Directus webhook format
+        # Check if we have translations.create in the body
+        if "translations" not in body or "create" not in body["translations"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Expected 'translations.create' in request body"
+            )
+        
+        # Extract translatable content
         translations_data = {}
+        create_items = body["translations"]["create"]
         
-        if "translations" in body and "create" in body["translations"]:
-            for item in body["translations"]["create"]:
-                if "headline" in item:
-                    translations_data["headline"] = item["headline"]
-                if "content" in item:
-                    translations_data["content"] = item["content"]
+        if not create_items:  # If create array is empty
+            raise HTTPException(
+                status_code=400,
+                detail="No items found in translations.create array"
+            )
+            
+        # Get the first item from create array
+        first_item = create_items[0]
         
-        # If no translatable content found
+        # Extract headline and content if they exist
+        if "headline" in first_item:
+            translations_data["headline"] = first_item["headline"]
+        if "content" in first_item:
+            translations_data["content"] = first_item["content"]
+        
+        # If no translatable fields found
         if not translations_data:
             raise HTTPException(
                 status_code=400,
-                detail="No translatable content found in the request"
+                detail="No translatable content (headline or content) found in the request"
             )
         
-        # Wrap the data in the expected format
-        formatted_data = {
-            "payload": {
-                "translations": translations_data
+        # Translate the content
+        translated_translations = recursive_translate(translations_data)
+        
+        # Format the response
+        response_data = {
+            "status": "success",
+            "translated_data": {
+                "payload": {
+                    "translations": translated_translations
+                }
             }
         }
         
-        # Translate the content
-        translated_translations = recursive_translate(formatted_data["payload"]["translations"])
-        formatted_data["payload"]["translations"] = translated_translations
-        
-        return {"status": "success", "translated_data": formatted_data}
+        return response_data
     
     except HTTPException as he:
         raise he
