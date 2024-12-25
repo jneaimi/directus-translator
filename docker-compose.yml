@@ -8,7 +8,29 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      COOLIFY_BRANCH: '"main"'
+      COOLIFY_URL: "https://lan.estatfinder.com"
+      COOLIFY_FQDN: lan.estatfinder.com
     volumes:
-      - .:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - "jck0w0cws0ss080wcg0go440_:/app"
+    command: 'uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips="*"'
+    container_name: app-jck0w0cws0ss080wcg0go440-233919619984
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.gzip.compress=true
+      - traefik.http.services.app.loadbalancer.server.port=8000
+      - traefik.http.routers.https-0-jck0w0cws0ss080wcg0go440-app.service=app
+      - "traefik.http.routers.https-0-jck0w0cws0ss080wcg0go440-app.rule=Host(`lan.estatfinder.com`)"
+      - traefik.http.routers.https-0-jck0w0cws0ss080wcg0go440-app.tls=true
+    networks:
+      jck0w0cws0ss080wcg0go440: null
+
+networks:
+  jck0w0cws0ss080wcg0go440:
+    external: true
+
+volumes:
+  jck0w0cws0ss080wcg0go440_:
+    name: jck0w0cws0ss080wcg0go440_

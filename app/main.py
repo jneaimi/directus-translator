@@ -5,8 +5,25 @@ import openai
 import os
 import json  # Import json for safe parsing
 from openai import OpenAI
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add trusted host middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["lan.estatfinder.com", "localhost", "127.0.0.1"]
+)
 
 # Set OpenAI API Key from environment variable
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -124,18 +141,17 @@ async def version():
 @app.post("/translate")
 async def translate_endpoint(request: Request):
     try:
-        # Add debug logging
-        print("Starting translation request")
+        print(f"Request headers: {request.headers}")  # Debug headers
         body = await request.json()
-        print("Request body:", body)
+        print(f"Request body: {body}")  # Debug body
         
         if "translations" not in body or "create" not in body["translations"]:
-            print("Invalid request structure received")
-            print("Body keys:", body.keys())
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid request structure. Received keys: {list(body.keys())}"
-            )
+            print("Invalid request structure")
+            return {
+                "status": "error",
+                "detail": "Invalid request structure",
+                "received": body
+            }
             
         create_item = body["translations"]["create"][0]
         to_translate = {
@@ -151,5 +167,9 @@ async def translate_endpoint(request: Request):
         }
             
     except Exception as e:
-        print(f"Error in translation endpoint: {str(e)}")
+        print(f"Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "version": "2.0"}
