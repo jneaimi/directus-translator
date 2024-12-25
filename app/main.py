@@ -119,33 +119,38 @@ def recursive_translate(data, target_language: str = "Arabic"):
 
 @app.post("/translate")
 async def translate_endpoint(request: Request):
-    """
-    Endpoint to handle translation requests.
-    
-    Expects a JSON payload with the following structure:
-    {
-        "payload": {
-            "translations": { ... }
-        }
-    }
-    
-    Returns the translated JSON data.
-    """
     try:
-        # Fix indentation for the entire try-except block
         body = await request.json()
         
-        if "payload" not in body or "translations" not in body["payload"]:
+        # Handle Directus webhook format
+        translations_data = {}
+        
+        if "translations" in body and "create" in body["translations"]:
+            for item in body["translations"]["create"]:
+                if "headline" in item:
+                    translations_data["headline"] = item["headline"]
+                if "content" in item:
+                    translations_data["content"] = item["content"]
+        
+        # If no translatable content found
+        if not translations_data:
             raise HTTPException(
-                status_code=400, 
-                detail="'payload' or 'translations' key not found in the request body"
+                status_code=400,
+                detail="No translatable content found in the request"
             )
         
-        translations_data = body["payload"]["translations"]
-        translated_translations = recursive_translate(translations_data)
-        body["payload"]["translations"] = translated_translations
+        # Wrap the data in the expected format
+        formatted_data = {
+            "payload": {
+                "translations": translations_data
+            }
+        }
         
-        return {"status": "success", "translated_data": body}
+        # Translate the content
+        translated_translations = recursive_translate(formatted_data["payload"]["translations"])
+        formatted_data["payload"]["translations"] = translated_translations
+        
+        return {"status": "success", "translated_data": formatted_data}
     
     except HTTPException as he:
         raise he
