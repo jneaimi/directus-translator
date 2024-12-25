@@ -117,35 +117,39 @@ def recursive_translate(data, target_language: str = "Arabic"):
         return data
 
 
+@app.get("/version")
+async def version():
+    return {"version": "2.0", "environment": "production"}
+
 @app.post("/translate")
 async def translate_endpoint(request: Request):
     try:
+        # Add debug logging
+        print("Starting translation request")
         body = await request.json()
-        print("Received body:", body)  # Debug print
+        print("Request body:", body)
         
-        # Extract data directly from the create array
-        if "translations" in body and "create" in body["translations"]:
-            create_item = body["translations"]["create"][0]
-            
-            # Create translation input
-            to_translate = {
-                "headline": create_item.get("headline", ""),
-                "content": create_item.get("content", "")
-            }
-            
-            # Translate the content
-            translated = recursive_translate(to_translate)
-            
-            return {
-                "status": "success",
-                "translated_data": translated
-            }
-        else:
+        if "translations" not in body or "create" not in body["translations"]:
+            print("Invalid request structure received")
+            print("Body keys:", body.keys())
             raise HTTPException(
                 status_code=400,
-                detail="Invalid request format. Expected translations.create array"
+                detail=f"Invalid request structure. Received keys: {list(body.keys())}"
             )
             
+        create_item = body["translations"]["create"][0]
+        to_translate = {
+            "headline": create_item.get("headline", ""),
+            "content": create_item.get("content", "")
+        }
+        
+        translated = recursive_translate(to_translate)
+        
+        return {
+            "status": "success",
+            "translated_data": translated
+        }
+            
     except Exception as e:
-        print(f"Error processing request: {str(e)}")  # Debug print
+        print(f"Error in translation endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
