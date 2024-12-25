@@ -123,56 +123,29 @@ async def translate_endpoint(request: Request):
         body = await request.json()
         print("Received body:", body)  # Debug print
         
-        # Initialize translations data
-        translations_data = {}
-        
-        # Check if we have the translations key with create array
-        if not isinstance(body, dict):
-            raise HTTPException(status_code=400, detail="Request body must be a JSON object")
+        # Extract data directly from the create array
+        if "translations" in body and "create" in body["translations"]:
+            create_item = body["translations"]["create"][0]
             
-        translations = body.get("translations")
-        if not translations or not isinstance(translations, dict):
-            raise HTTPException(status_code=400, detail="Missing or invalid 'translations' object")
+            # Create translation input
+            to_translate = {
+                "headline": create_item.get("headline", ""),
+                "content": create_item.get("content", "")
+            }
             
-        create_items = translations.get("create")
-        if not create_items or not isinstance(create_items, list):
-            raise HTTPException(status_code=400, detail="Missing or invalid 'create' array in translations")
+            # Translate the content
+            translated = recursive_translate(to_translate)
             
-        if not create_items:
-            raise HTTPException(status_code=400, detail="'create' array is empty")
-            
-        # Get the first item
-        item = create_items[0]
-        
-        # Extract translatable fields
-        if "headline" in item:
-            translations_data["headline"] = item["headline"]
-        if "content" in item:
-            translations_data["content"] = item["content"]
-            
-        if not translations_data:
+            return {
+                "status": "success",
+                "translated_data": translated
+            }
+        else:
             raise HTTPException(
                 status_code=400,
-                detail="No translatable content found (headline or content)"
+                detail="Invalid request format. Expected translations.create array"
             )
             
-        print("Extracted translations_data:", translations_data)  # Debug print
-        
-        # Perform translation
-        translated_content = recursive_translate(translations_data)
-        
-        response = {
-            "status": "success",
-            "translated_data": translated_content
-        }
-        
-        print("Response:", response)  # Debug print
-        return response
-        
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON in request body")
-    except HTTPException as he:
-        raise he
     except Exception as e:
-        print("Error:", str(e))  # Debug print
-        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+        print(f"Error processing request: {str(e)}")  # Debug print
+        raise HTTPException(status_code=500, detail=str(e))
