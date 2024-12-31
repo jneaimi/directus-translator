@@ -152,86 +152,57 @@ async def version():
 @app.post("/translate")
 async def translate_endpoint(request: Request):
     try:
-        print("=== Starting translation request ===")
+        body = await request.json()
         
-        try:
-            body = await request.json()
-            print(f"Request body received: {body}")
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error: {e}")
-            return {
-                "status": "error",
-                "detail": "Invalid JSON format",
-                "received": await request.body()
-            }
+        # Directly translate each field
+        translations = {}
+        fields_to_translate = ['title', 'headline', 'content']
         
-        # Create a case-insensitive dictionary of the request body
-        case_insensitive_body = {k.lower(): (k, v) for k, v in body.items()}
-        print(f"Case-insensitive body mapping: {case_insensitive_body}")
+        for field in fields_to_translate:
+            # Get field value regardless of case
+            field_value = None
+            field_key = None
+            
+            # Find the field in the body regardless of case
+            for key in body:
+                if key.lower() == field.lower():
+                    field_value = body[key]
+                    field_key = key
+                    break
+            
+            if field_value:
+                try:
+                    # Translate the field directly
+                    translated_result = translate_text_with_prompt(field_value, "Arabic")
+                    
+                    try:
+                        # Try to parse JSON response
+                        translated_json = json.loads(translated_result)
+                        translations[field_key] = translated_json.get("arabic_translation", field_value)
+                    except json.JSONDecodeError:
+                        # If not JSON, use the result directly
+                        translations[field_key] = translated_result
+                        
+                except Exception:
+                    translations[field_key] = field_value
         
-        # Define translatable fields (lowercase)
-        translatable_fields = ["title", "headline", "content"]
-        
-        # Extract fields to translate
-        to_translate = {}
-        original_keys = {}  # Store original key cases
-        
-        for field in translatable_fields:
-            if field in case_insensitive_body:
-                original_key, value = case_insensitive_body[field]
-                to_translate[field] = value
-                original_keys[field] = original_key
-        
-        print(f"Fields to translate: {to_translate}")
-        print(f"Original key mapping: {original_keys}")
-        
-        if not to_translate:
-            print("No translatable fields found")
-            return {
-                "status": "error",
-                "detail": "No translatable fields found",
-                "received": body
-            }
-        
-        # Attempt translation
-        try:
-            translated = recursive_translate(to_translate)
-            print(f"Translation successful: {translated}")
-        except Exception as e:
-            print(f"Translation error: {e}")
-            return {
-                "status": "error",
-                "detail": f"Translation failed: {str(e)}",
-                "received": body
-            }
-        
-        # Prepare response using original key cases
-        translated_with_original_case = {
-            original_keys.get(k.lower(), k): v 
-            for k, v in translated.items()
-        }
-        
-        response = {
+        # Prepare response
+        return {
             "status": "success",
             "payload": {
                 **body,
                 "translations": {
-                    "ar": translated_with_original_case
+                    "ar": translations
                 }
             }
         }
-        print(f"Sending response: {response}")
-        return response
-        
+            
     except Exception as e:
-        print(f"Unexpected error: {str(e)}")
         return {
             "status": "error",
             "detail": str(e),
             "received": body if 'body' in locals() else {"error": "No body available"}
         }
-    finally:
-        print("=== End translation request ===")
 
 @app.get("/health")
 async def health_check():
