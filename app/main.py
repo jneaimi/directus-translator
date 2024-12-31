@@ -17,6 +17,13 @@ if not os.getenv("OPENAI_API_KEY"):
     print("Warning: OPENAI_API_KEY not found in environment variables")
     raise ValueError("OPENAI_API_KEY environment variable is required")
 
+# Initialize OpenAI client
+openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()
+
+print(f"=== Application initialized ===")
+print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
+
 app = FastAPI()
 
 # Add CORS middleware
@@ -33,14 +40,6 @@ app.add_middleware(
 #     TrustedHostMiddleware,
 #     allowed_hosts=["lan.estatfinder.com", "localhost", "127.0.0.1"]
 # )
-
-# Initialize OpenAI client
-openai.api_key = os.getenv("OPENAI_API_KEY")
-client = OpenAI()
-
-print(f"=== Application initialized ===")
-print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
-
 
 def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> str:
     """
@@ -154,11 +153,7 @@ async def version():
 async def translate_endpoint(request: Request):
     try:
         print("=== Starting translation request ===")
-
-        # Log request headers
-        print("Request headers:", request.headers)
-
-        # Get and validate request body
+        
         try:
             body = await request.json()
             print(f"Request body received: {body}")
@@ -169,25 +164,35 @@ async def translate_endpoint(request: Request):
                 "detail": "Invalid JSON format",
                 "received": await request.body()
             }
-
-        # Validate required fields
-        translatable_fields = ["title", "Headline", "content"]
-        if not any(field in body for field in translatable_fields):
+        
+        # Create a case-insensitive dictionary of the request body
+        case_insensitive_body = {k.lower(): (k, v) for k, v in body.items()}
+        print(f"Case-insensitive body mapping: {case_insensitive_body}")
+        
+        # Define translatable fields (lowercase)
+        translatable_fields = ["title", "headline", "content"]
+        
+        # Extract fields to translate
+        to_translate = {}
+        original_keys = {}  # Store original key cases
+        
+        for field in translatable_fields:
+            if field in case_insensitive_body:
+                original_key, value = case_insensitive_body[field]
+                to_translate[field] = value
+                original_keys[field] = original_key
+        
+        print(f"Fields to translate: {to_translate}")
+        print(f"Original key mapping: {original_keys}")
+        
+        if not to_translate:
             print("No translatable fields found")
             return {
                 "status": "error",
                 "detail": "No translatable fields found",
                 "received": body
             }
-
-        # Extract fields to translate
-        to_translate = {
-            field: body.get(field, "") 
-            for field in translatable_fields 
-            if body.get(field)
-        }
-        print(f"Fields to translate: {to_translate}")
-
+        
         # Attempt translation
         try:
             translated = recursive_translate(to_translate)
@@ -199,20 +204,25 @@ async def translate_endpoint(request: Request):
                 "detail": f"Translation failed: {str(e)}",
                 "received": body
             }
-
-        # Prepare and return response
+        
+        # Prepare response using original key cases
+        translated_with_original_case = {
+            original_keys.get(k.lower(), k): v 
+            for k, v in translated.items()
+        }
+        
         response = {
             "status": "success",
             "payload": {
                 **body,
                 "translations": {
-                    "ar": translated
+                    "ar": translated_with_original_case
                 }
             }
         }
         print(f"Sending response: {response}")
         return response
-
+        
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return {
