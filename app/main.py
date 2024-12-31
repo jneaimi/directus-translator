@@ -156,7 +156,7 @@ async def translate_endpoint(request: Request):
         
         # Directly translate each field
         translations = {}
-        fields_to_translate = ['title', 'headline', 'content']
+        fields_to_translate = ['title', 'headline', 'content', 'label']
         
         for field in fields_to_translate:
             # Get field value regardless of case
