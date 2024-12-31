@@ -141,39 +141,72 @@ async def version():
 @app.post("/translate")
 async def translate_endpoint(request: Request):
     try:
-        print(f"Request headers: {request.headers}")  # Debug headers
-        body = await request.json()
-        print(f"Request body: {body}")  # Debug body
+        print("=== Starting translation request ===")
+        
+        # Get and validate request body
+        try:
+            body = await request.json()
+            print(f"Request body received: {body}")
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")
+            return {
+                "status": "error",
+                "detail": "Invalid JSON format",
+                "received": await request.body()
+            }
+        
+        # Validate required fields
+        translatable_fields = ["title", "Headline", "content"]
+        if not any(field in body for field in translatable_fields):
+            print("No translatable fields found")
+            return {
+                "status": "error",
+                "detail": "No translatable fields found",
+                "received": body
+            }
         
         # Extract fields to translate
         to_translate = {
-            "title": body.get("title", ""),
-            "Headline": body.get("Headline", ""),
-            "content": body.get("content", "")
+            field: body.get(field, "") 
+            for field in translatable_fields 
+            if body.get(field)
         }
+        print(f"Fields to translate: {to_translate}")
         
-        print(f"Fields to translate: {to_translate}")  # Debug translation input
+        # Attempt translation
+        try:
+            translated = recursive_translate(to_translate)
+            print(f"Translation successful: {translated}")
+        except Exception as e:
+            print(f"Translation error: {e}")
+            return {
+                "status": "error",
+                "detail": f"Translation failed: {str(e)}",
+                "received": body
+            }
         
-        # Translate the content
-        translated = recursive_translate(to_translate)
-        print(f"Translated content: {translated}")  # Debug translation output
-        
-        # Return both original and translated content
+        # Prepare and return response
         response = {
             "status": "success",
             "payload": {
-                **body,  # Original content
+                **body,
                 "translations": {
-                    "ar": translated  # Arabic translations
+                    "ar": translated
                 }
             }
         }
-        print(f"Final response: {response}")  # Debug response
+        print(f"Sending response: {response}")
         return response
-            
+        
     except Exception as e:
-        print(f"Error occurred: {str(e)}")  # Debug error
-        raise HTTPException(status_code=500, detail=f"Translation error: {str(e)}")
+        print(f"Unexpected error: {str(e)}")
+        return {
+            "status": "error",
+            "detail": str(e),
+            "received": getattr(body, 'dict', lambda: {"error": "No body available"})()
+        }
+    finally:
+        print("=== End translation request ===")
 
 @app.get("/health")
 async def health_check():
