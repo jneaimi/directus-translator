@@ -145,25 +145,37 @@ async def translate_endpoint(request: Request):
         body = await request.json()
         print(f"Request body: {body}")  # Debug body
         
-        if "translations" not in body or "create" not in body["translations"]:
+        # Check for required fields in the new structure
+        if "payload" not in body:
             print("Invalid request structure")
             return {
                 "status": "error",
                 "detail": "Invalid request structure",
                 "received": body
             }
-            
-        create_item = body["translations"]["create"][0]
+        
+        # Extract fields to translate from payload
         to_translate = {
-            "headline": create_item.get("headline", ""),
-            "content": create_item.get("content", "")
+            "title": body["payload"].get("title", ""),
+            "Headline": body["payload"].get("Headline", ""),
+            "content": body["payload"].get("content", "")
         }
         
+        # Translate the content
         translated = recursive_translate(to_translate)
         
+        # Return both original and translated content
         return {
             "status": "success",
-            "translated_data": translated
+            "event": body.get("event"),
+            "collection": body.get("collection"),
+            "key": body.get("key"),
+            "payload": {
+                **body["payload"],  # Original payload
+                "translations": {
+                    "ar": translated  # Arabic translations
+                }
+            }
         }
             
     except Exception as e:
