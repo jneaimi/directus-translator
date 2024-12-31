@@ -33,11 +33,11 @@ client = OpenAI()
 def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> str:
     """
     Translate a given text using OpenAI's chat models with a custom advanced prompt.
-    
+
     Args:
         text (str): The English text to be translated.
         target_language (str): The target language for translation. Default is "Arabic".
-        
+
     Returns:
         str: The translation result in JSON format.
     """
@@ -46,9 +46,9 @@ def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> st
     You are an expert translator specializing in English to {target_language} translations. 
     Your task is to provide an accurate and natural-sounding translation while preserving 
     the original meaning and tone of the text.
-    
+
     Please follow these instructions carefully:
-    
+
     1. Translate the content into Modern Standard Arabic (فصحى), ensuring grammatical 
        correctness and appropriate vocabulary usage.
     2. Maintain the original formatting, including paragraphs, line breaks, and any 
@@ -59,20 +59,20 @@ def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> st
        translate the meaning rather than providing a literal translation.
     5. After completing the translation, review it to ensure accuracy, fluency, 
        and naturalness in Arabic.
-    
+
     Your final output must be in the specified JSON format:
-    
+
     {{
         "arabic_translation": "Your Arabic translation here",
         "translation_notes": "Any relevant notes or explanations about the translation, if necessary"
     }}
-    
+
     Remember to provide a high-quality translation that accurately conveys the meaning and tone of the original English content in fluent, natural-sounding Arabic.
     """
 
     # User prompt containing the text to be translated
     user_prompt = f"Here is the English content to be translated:\n\n{text}"
-    
+
     try:
         # Call OpenAI's ChatCompletion API
         response = client.chat.completions.create(
@@ -83,10 +83,10 @@ def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> st
             ],
             temperature=0  # Set to 0 for more consistent translations
         )
-        
+
         # Extract and return the translation result
         return response.choices[0].message.content.strip()
-    
+
     except openai.APIError as e:
         # Handle OpenAI API errors
         raise HTTPException(status_code=502, detail=f"OpenAI API error: {str(e)}")
@@ -98,11 +98,11 @@ def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> st
 def recursive_translate(data, target_language: str = "Arabic"):
     """
     Recursively translate all text within the translations section using the custom translation prompt.
-    
+
     Args:
         data (dict or list): The JSON data containing text to be translated.
         target_language (str): The target language for translation. Default is "Arabic".
-        
+
     Returns:
         dict or list: The translated JSON data.
     """
@@ -142,7 +142,7 @@ async def version():
 async def translate_endpoint(request: Request):
     try:
         print("=== Starting translation request ===")
-        
+
         # Get and validate request body
         try:
             body = await request.json()
@@ -154,7 +154,7 @@ async def translate_endpoint(request: Request):
                 "detail": "Invalid JSON format",
                 "received": await request.body()
             }
-        
+
         # Validate required fields
         translatable_fields = ["title", "Headline", "content"]
         if not any(field in body for field in translatable_fields):
@@ -164,7 +164,7 @@ async def translate_endpoint(request: Request):
                 "detail": "No translatable fields found",
                 "received": body
             }
-        
+
         # Extract fields to translate
         to_translate = {
             field: body.get(field, "") 
@@ -172,7 +172,7 @@ async def translate_endpoint(request: Request):
             if body.get(field)
         }
         print(f"Fields to translate: {to_translate}")
-        
+
         # Attempt translation
         try:
             translated = recursive_translate(to_translate)
@@ -184,7 +184,7 @@ async def translate_endpoint(request: Request):
                 "detail": f"Translation failed: {str(e)}",
                 "received": body
             }
-        
+
         # Prepare and return response
         response = {
             "status": "success",
@@ -197,13 +197,13 @@ async def translate_endpoint(request: Request):
         }
         print(f"Sending response: {response}")
         return response
-        
+
     except Exception as e:
         print(f"Unexpected error: {str(e)}")
         return {
             "status": "error",
             "detail": str(e),
-            "received": getattr(body, 'dict', lambda: {"error": "No body available"})()
+            "received": body if 'body' in locals() else {"error": "No body available"}
         }
     finally:
         print("=== End translation request ===")
