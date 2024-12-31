@@ -7,6 +7,15 @@ import json  # Import json for safe parsing
 from openai import OpenAI
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+import dotenv
+
+# Load environment variables
+dotenv.load_dotenv()
+
+# Validate OpenAI API key
+if not os.getenv("OPENAI_API_KEY"):
+    print("Warning: OPENAI_API_KEY not found in environment variables")
+    raise ValueError("OPENAI_API_KEY environment variable is required")
 
 app = FastAPI()
 
@@ -25,9 +34,12 @@ app.add_middleware(
 #     allowed_hosts=["lan.estatfinder.com", "localhost", "127.0.0.1"]
 # )
 
-# Set OpenAI API Key from environment variable
+# Initialize OpenAI client
 openai.api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
+
+print(f"=== Application initialized ===")
+print(f"Environment: {os.getenv('ENVIRONMENT', 'development')}")
 
 
 def translate_text_with_prompt(text: str, target_language: str = "Arabic") -> str:
