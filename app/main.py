@@ -145,20 +145,14 @@ async def translate_endpoint(request: Request):
         body = await request.json()
         print(f"Request body: {body}")  # Debug body
         
-        # Check for required fields in the new structure
-        if "payload" not in body:
-            print("Invalid request structure")
-            return {
-                "status": "error",
-                "detail": "Invalid request structure",
-                "received": body
-            }
+        # Handle both structures - with or without payload wrapper
+        payload = body.get("payload", body)
         
-        # Extract fields to translate from payload
+        # Extract fields to translate
         to_translate = {
-            "title": body["payload"].get("title", ""),
-            "Headline": body["payload"].get("Headline", ""),
-            "content": body["payload"].get("content", "")
+            "title": payload.get("title", ""),
+            "Headline": payload.get("Headline", ""),
+            "content": payload.get("content", "")
         }
         
         # Translate the content
@@ -171,7 +165,7 @@ async def translate_endpoint(request: Request):
             "collection": body.get("collection"),
             "key": body.get("key"),
             "payload": {
-                **body["payload"],  # Original payload
+                **payload,  # Original payload
                 "translations": {
                     "ar": translated  # Arabic translations
                 }
