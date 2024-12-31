@@ -145,36 +145,35 @@ async def translate_endpoint(request: Request):
         body = await request.json()
         print(f"Request body: {body}")  # Debug body
         
-        # Handle both structures - with or without payload wrapper
-        payload = body.get("payload", body)
-        
         # Extract fields to translate
         to_translate = {
-            "title": payload.get("title", ""),
-            "Headline": payload.get("Headline", ""),
-            "content": payload.get("content", "")
+            "title": body.get("title", ""),
+            "Headline": body.get("Headline", ""),
+            "content": body.get("content", "")
         }
+        
+        print(f"Fields to translate: {to_translate}")  # Debug translation input
         
         # Translate the content
         translated = recursive_translate(to_translate)
+        print(f"Translated content: {translated}")  # Debug translation output
         
         # Return both original and translated content
-        return {
+        response = {
             "status": "success",
-            "event": body.get("event"),
-            "collection": body.get("collection"),
-            "key": body.get("key"),
             "payload": {
-                **payload,  # Original payload
+                **body,  # Original content
                 "translations": {
                     "ar": translated  # Arabic translations
                 }
             }
         }
+        print(f"Final response: {response}")  # Debug response
+        return response
             
     except Exception as e:
-        print(f"Error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Error occurred: {str(e)}")  # Debug error
+        raise HTTPException(status_code=500, detail=f"Translation error: {str(e)}")
 
 @app.get("/health")
 async def health_check():
