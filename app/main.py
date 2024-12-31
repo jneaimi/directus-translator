@@ -20,10 +20,10 @@ app.add_middleware(
 )
 
 # Add trusted host middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["lan.estatfinder.com", "localhost", "127.0.0.1"]
-)
+# app.add_middleware(
+#     TrustedHostMiddleware,
+#     allowed_hosts=["lan.estatfinder.com", "localhost", "127.0.0.1"]
+# )
 
 # Set OpenAI API Key from environment variable
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -142,6 +142,9 @@ async def version():
 async def translate_endpoint(request: Request):
     try:
         print("=== Starting translation request ===")
+
+        # Log request headers
+        print("Request headers:", request.headers)
 
         # Get and validate request body
         try:
