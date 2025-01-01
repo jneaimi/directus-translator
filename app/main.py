@@ -156,8 +156,9 @@ async def translate_endpoint(request: Request):
         
         # Directly translate each field
         translations = {}
-        fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company','answer']
+        fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company']
         
+        # Handle regular fields
         for field in fields_to_translate:
             # Get field value regardless of case
             field_value = None
@@ -185,6 +186,31 @@ async def translate_endpoint(request: Request):
                         
                 except Exception:
                     translations[field_key] = field_value
+        
+        # Handle FAQs if present
+        if 'faqs' in body:
+            translated_faqs = []
+            for faq in body['faqs']:
+                translated_faq = {}
+                
+                # Translate each field in the FAQ
+                for faq_field in ['title', 'answer']:
+                    if faq_field in faq:
+                        try:
+                            translated_result = translate_text_with_prompt(faq[faq_field], "Arabic")
+                            
+                            try:
+                                translated_json = json.loads(translated_result)
+                                translated_faq[faq_field] = translated_json.get("arabic_translation", faq[faq_field])
+                            except json.JSONDecodeError:
+                                translated_faq[faq_field] = translated_result
+                                
+                        except Exception:
+                            translated_faq[faq_field] = faq[faq_field]
+                
+                translated_faqs.append(translated_faq)
+            
+            translations['faqs'] = translated_faqs
         
         # Prepare response
         return {
