@@ -212,6 +212,40 @@ async def translate_endpoint(request: Request):
             
             translations['faqs'] = translated_faqs
         
+        # Handle rows if present
+        if 'rows' in body:
+            translated_rows = {'create': [], 'update': [], 'delete': []}
+            
+            # Handle each operation type (create, update, delete)
+            for operation in ['create', 'update', 'delete']:
+                if operation in body['rows']:
+                    for row in body['rows'][operation]:
+                        translated_row = {}
+                        
+                        # Copy non-translatable fields
+                        for key, value in row.items():
+                            if key not in fields_to_translate:
+                                translated_row[key] = value
+                        
+                        # Translate translatable fields
+                        for field in fields_to_translate:
+                            if field in row:
+                                try:
+                                    translated_result = translate_text_with_prompt(row[field], "Arabic")
+                                    
+                                    try:
+                                        translated_json = json.loads(translated_result)
+                                        translated_row[field] = translated_json.get("arabic_translation", row[field])
+                                    except json.JSONDecodeError:
+                                        translated_row[field] = translated_result
+                                        
+                                except Exception:
+                                    translated_row[field] = row[field]
+                        
+                        translated_rows[operation].append(translated_row)
+            
+            translations['rows'] = translated_rows
+        
         # Prepare response
         return {
             "status": "success",
