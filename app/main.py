@@ -154,9 +154,12 @@ async def translate_endpoint(request: Request):
     try:
         body = await request.json()
         
+        # Get the actual payload if it exists
+        payload = body.get('payload', body)
+        
         # Directly translate each field
         translations = {}
-        fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company']
+        fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company','bio']
         
         # Handle regular fields
         for field in fields_to_translate:
@@ -164,10 +167,10 @@ async def translate_endpoint(request: Request):
             field_value = None
             field_key = None
             
-            # Find the field in the body regardless of case
-            for key in body:
+            # Find the field in the payload regardless of case
+            for key in payload:
                 if key.lower() == field.lower():
-                    field_value = body[key]
+                    field_value = payload[key]
                     field_key = key
                     break
             
@@ -188,9 +191,9 @@ async def translate_endpoint(request: Request):
                     translations[field_key] = field_value
         
         # Handle FAQs if present
-        if 'faqs' in body:
+        if 'faqs' in payload:
             translated_faqs = []
-            for faq in body['faqs']:
+            for faq in payload['faqs']:
                 translated_faq = {}
                 
                 # Translate each field in the FAQ
@@ -212,50 +215,61 @@ async def translate_endpoint(request: Request):
             
             translations['faqs'] = translated_faqs
         
-        # Handle rows if present
-        if 'rows' in body:
-            translated_rows = {'create': [], 'update': [], 'delete': []}
-            
-            # Handle each operation type (create, update, delete)
-            for operation in ['create', 'update', 'delete']:
-                if operation in body['rows']:
-                    for row in body['rows'][operation]:
-                        translated_row = {}
-                        
-                        # Copy non-translatable fields
-                        for key, value in row.items():
-                            if key not in fields_to_translate:
-                                translated_row[key] = value
-                        
-                        # Translate translatable fields
-                        for field in fields_to_translate:
-                            if field in row:
-                                try:
-                                    translated_result = translate_text_with_prompt(row[field], "Arabic")
-                                    
+        # Handle rows or steps if present
+        for section in ['rows', 'steps']:
+            if section in payload:
+                translated_section = {'create': [], 'update': [], 'delete': []}
+                
+                # Handle each operation type (create, update, delete)
+                for operation in ['create', 'update', 'delete']:
+                    if operation in payload[section]:
+                        for item in payload[section][operation]:
+                            translated_item = {}
+                            
+                            # Copy non-translatable fields
+                            for key, value in item.items():
+                                if key not in fields_to_translate:
+                                    translated_item[key] = value
+                            
+                            # Translate translatable fields
+                            for field in fields_to_translate:
+                                if field in item:
                                     try:
-                                        translated_json = json.loads(translated_result)
-                                        translated_row[field] = translated_json.get("arabic_translation", row[field])
-                                    except json.JSONDecodeError:
-                                        translated_row[field] = translated_result
+                                        translated_result = translate_text_with_prompt(item[field], "Arabic")
                                         
-                                except Exception:
-                                    translated_row[field] = row[field]
-                        
-                        translated_rows[operation].append(translated_row)
-            
-            translations['rows'] = translated_rows
+                                        try:
+                                            translated_json = json.loads(translated_result)
+                                            translated_item[field] = translated_json.get("arabic_translation", item[field])
+                                        except json.JSONDecodeError:
+                                            translated_item[field] = translated_result
+                                            
+                                    except Exception:
+                                        translated_item[field] = item[field]
+                            
+                            translated_section[operation].append(translated_item)
+                
+                translations[section] = translated_section
         
         # Prepare response
-        return {
+        response = {
             "status": "success",
             "payload": {
-                **body,
+                **payload,
                 "translations": {
                     "ar": translations
                 }
             }
         }
+        
+        # Add event and collection if they exist in the original request
+        if 'event' in body:
+            response['event'] = body['event']
+        if 'collection' in body:
+            response['collection'] = body['collection']
+        if 'key' in body:
+            response['key'] = body['key']
+            
+        return response
             
     except Exception as e:
         return {
