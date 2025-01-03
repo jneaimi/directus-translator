@@ -159,7 +159,7 @@ async def translate_endpoint(request: Request):
         
         # Directly translate each field
         translations = {}
-        fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company','bio']
+        fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company','bio','summary','client','name','job_title']
         
         # Handle regular fields
         for field in fields_to_translate:
