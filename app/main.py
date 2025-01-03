@@ -160,6 +160,7 @@ async def translate_endpoint(request: Request):
         # Directly translate each field
         translations = {}
         fields_to_translate = ['title', 'headline', 'content', 'label','subtitle','company','bio','summary','client','name','job_title']
+        array_fields_to_translate = ['built_with']
         
         # Handle regular fields
         for field in fields_to_translate:
@@ -189,6 +190,38 @@ async def translate_endpoint(request: Request):
                         
                 except Exception:
                     translations[field_key] = field_value
+        
+        # Handle array fields (like built_with)
+        for field in array_fields_to_translate:
+            field_value = None
+            field_key = None
+            
+            # Find the field in the payload regardless of case
+            for key in payload:
+                if key.lower() == field.lower():
+                    field_value = payload[key]
+                    field_key = key
+                    break
+            
+            if field_value and isinstance(field_value, list):
+                translated_array = []
+                for item in field_value:
+                    if isinstance(item, str):
+                        try:
+                            # Translate each string in the array
+                            translated_result = translate_text_with_prompt(item, "Arabic")
+                            
+                            try:
+                                # Try to parse JSON response
+                                translated_json = json.loads(translated_result)
+                                translated_array.append(translated_json.get("arabic_translation", item))
+                            except json.JSONDecodeError:
+                                # If not JSON, use the result directly
+                                translated_array.append(translated_result)
+                        except Exception:
+                            translated_array.append(item)
+                
+                translations[field_key] = translated_array
         
         # Handle FAQs if present
         if 'faqs' in payload:
